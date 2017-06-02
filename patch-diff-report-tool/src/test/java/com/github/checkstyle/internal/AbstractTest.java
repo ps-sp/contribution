@@ -117,7 +117,7 @@ public abstract class AbstractTest {
 
                 // fix for different OS runs as file path is printed in OS'
                 // format. Windows prints with '\' and unix prints with '/'.
-                if (line.contains("<a href = ")) {
+                if (line.contains("<a href = ") || (line.contains("<h3>"))) {
                     line = line.replace("\\", "/");
                 }
 

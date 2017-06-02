@@ -30,6 +30,9 @@ public class MainTest extends AbstractTest {
     private static final String VALID_BASE_REPORT = getPath("InputBaseReportDifferences.xml");
     private static final String VALID_PATCH_REPORT = getPath("InputPatchReportDifferences.xml");
 
+    private static final String VALID_BASE_DIR = getPath("runText/base");
+    private static final String VALID_PATCH_DIR = getPath("runText/patch");
+
     @Test
     public void testHelp() throws Exception {
         Main.main("-h");
@@ -40,8 +43,7 @@ public class MainTest extends AbstractTest {
                 + "Command line arguments:\n"
                 + "\t--baseReportPath - path to the base checkstyle-result.xml (optional, if "
                 + "absent then only configuration and violations for patch will be in the "
-                + "report)\n"
-                + "\t--patchReportPath - path to the patch checkstyle-result.xml,"
+                + "report)\n" + "\t--patchReportPath - path to the patch checkstyle-result.xml,"
                 + " obligatory argument;\n"
                 + "\t--sourcePath - path to the data under check (optional, if absent"
                 + " then file structure for cross reference files won't be relativized,"
@@ -200,6 +202,16 @@ public class MainTest extends AbstractTest {
 
         Assert.assertEquals(getFileContents(new File(getPath("ExpectedXrefNonCompilable.html"))),
                 getFileContents(xrefFile));
+    }
+
+    @Test
+    public void testTextMode() throws Exception {
+        final File outputDirectory = folder.getRoot();
+
+        Main.main("-compareMode", "text", "-baseReport", VALID_BASE_DIR, "-patchReport",
+                VALID_PATCH_DIR, "-output", outputDirectory.getAbsolutePath());
+
+        assertReportOutput(getPath("ExpectedReportTextMode.html"), outputDirectory);
     }
 
     @Test
