@@ -116,6 +116,13 @@ function launch {
 					git clean -f -d
 					cd -
 				fi
+				if [ "$REPO_NAME" == "checkstyle" ]; then
+				    echo "Removing InputAllEscapedUnicodeCharacters.java and InputJustToMakeStackoverflowError.java"
+				    cd $GITPATH
+				    rm src/test/resources/com/puppycrawl/tools/checkstyle/checks/misc/avoidescapedunicodecharacters/InputAllEscapedUnicodeCharacters.java
+				    rm src/test/resources/com/puppycrawl/tools/checkstyle/api/InputJustToMakeStackoverflowError.java
+				    cd -
+				fi
 
 				REPO_SOURCES_DIR=$GITPATH
 			elif [ "$REPO_TYPE" == "hg" ]; then
@@ -238,6 +245,7 @@ else
 fi
 
 git clean -f -d
+git cherry-pick docparseprof
 
 echo "Packaging Master"
 
@@ -257,6 +265,7 @@ fi
 
 git checkout $PULL_REMOTE/$1
 git clean -f -d
+git cherry-pick docparseprof
 
 mvn_package "patch"
 
@@ -282,6 +291,137 @@ echo "<html><body>" >> $FINAL_RESULTS_DIR/index.html
 echo "<h3><span style=\"color: #ff0000;\">" >> $FINAL_RESULTS_DIR/index.html
 echo "<strong>WARNING: Excludes are ignored by diff.groovy.</strong>" >> $FINAL_RESULTS_DIR/index.html
 echo "</span></h3>" >> $FINAL_RESULTS_DIR/index.html
+
+shopt -s globstar
+
+ORIG_IFS=$IFS
+IFS=
+
+cd $SITE_SAVE_MASTER_DIR;
+ANTLR_PARSER_TIME=$(grep -h "Time by ANTLR parser:" ./**/*.tree | cut -d ':' -f 2 | awk '{s+=$1}END{print s}')
+ANTLR_TIME=$(grep -h "Time by ANTLR:" ./**/*.tree | cut -d ':' -f 2 | awk '{s+=$1}END{print s}')
+COVERSION_TO_DETAILNODE_TIME=$(grep -h "Time to convert ParseTree to DetailNode:" ./**/*.tree | cut -d ':' -f 2 | awk '{s+=$1}END{print s}')
+JDNP_TIME=$(grep -h "Time by JavadocDetailNodeParser:" ./**/*.tree | cut -d ':' -f 2 | awk '{s+=$1}END{print s}')
+
+JAVADOC_COUNT=$(grep -h "Time by JavadocDetailNodeParser:" ./**/*.tree | wc -l)
+PARSE_COUNT=$(grep -h "Time by ANTLR parser:" ./**/*.tree | wc -l)
+
+echo "<h1><span style=\"color: #656565;\"><b>master</b></span></h1>" >> $FINAL_RESULTS_DIR/index.html
+
+echo "<style type="text/css">
+.tg  {border-collapse:collapse;border-spacing:0;border-color:#ccc;}
+.tg td{font-family:Arial, sans-serif;font-size:14px;padding:9px 20px;border-style:solid;border-width:1px;overflow:hidden;word-break:normal;border-color:#ccc;color:#333;background-color:#fff;}
+.tg th{font-family:Arial, sans-serif;font-size:14px;font-weight:normal;padding:9px 20px;border-style:solid;border-width:1px;overflow:hidden;word-break:normal;border-color:#ccc;color:#333;background-color:#f0f0f0;}
+.tg .tg-dkvh{font-size:20px;font-family:"Lucida Console", Monaco, monospace !important;;text-align:center;vertical-align:top}
+.tg .tg-ro48{font-weight:bold;font-size:26px;font-family:"Lucida Console", Monaco, monospace !important;;vertical-align:top}
+.tg .tg-mceu{font-weight:bold;font-size:26px;font-family:"Lucida Console", Monaco, monospace !important;;text-align:center;vertical-align:top}
+.tg .tg-nr88{background-color:#f9f9f9;font-size:20px;font-family:"Lucida Console", Monaco, monospace !important;;text-align:center;vertical-align:top}
+.tg .tg-zmo3{background-color:#f9f9f9;font-weight:bold;font-size:20px;font-family:"Lucida Console", Monaco, monospace !important;;text-align:center;vertical-align:top}
+</style>
+<table class="tg">
+  <tr>
+    <th class="tg-mceu">UNIT</th>
+    <th class="tg-ro48">Total Time (ms)</th>
+    <th class="tg-ro48">Average Time (ms)</th>
+    <th class="tg-ro48">Relative</th>
+  </tr>
+  <tr>
+    <td class="tg-dkvh">ANTLR Parser <a target="_blank" style="font-size: 15px" href="https://github.com/checkstyle/checkstyle/blob/master/src/main/java/com/puppycrawl/tools/checkstyle/JavadocDetailNodeParser.java#L166">JavadocParser#javadoc</a></td>
+    <td class="tg-nr88">$ANTLR_PARSER_TIME</td>
+    <td class="tg-dkvh">$(echo $ANTLR_PARSER_TIME/$PARSE_COUNT | bc -l | cut -c 1-9)</td>
+    <td class="tg-nr88">$(echo $ANTLR_PARSER_TIME/$ANTLR_TIME | bc -l | cut -c 1-7) <span style="font-size:10px"><i>(r1/r2)</i></span></td>
+  </tr>
+  <tr>
+    <td class="tg-dkvh">ANTLR <a target="_blank" style="font-size: 15px" href="https://github.com/checkstyle/checkstyle/blob/master/src/main/java/com/puppycrawl/tools/checkstyle/JavadocDetailNodeParser.java#L114">JDNP#parseJavadocAsParseTree</a></td>
+    <td class="tg-nr88">$ANTLR_TIME</td>
+    <td class="tg-dkvh">$(echo $ANTLR_TIME/$PARSE_COUNT | bc -l | cut -c 1-9)</td>
+    <td class="tg-nr88">$(echo $ANTLR_TIME/$JDNP_TIME | bc -l | cut -c 1-7) <span style="font-size:10px"><i>(r2/r4)</i></span></td>
+  </tr>
+  <tr>
+    <td class="tg-dkvh"><a target="_blank" href="https://github.com/checkstyle/checkstyle/blob/master/src/main/java/com/puppycrawl/tools/checkstyle/JavadocDetailNodeParser.java#L116">JDNP#convertParseTreeToDetailNode</a></td>
+    <td class="tg-nr88">$COVERSION_TO_DETAILNODE_TIME</td>
+    <td class="tg-dkvh">$(echo $COVERSION_TO_DETAILNODE_TIME/$PARSE_COUNT | bc -l | cut -c 1-9)</td>
+    <td class="tg-nr88">$(echo $COVERSION_TO_DETAILNODE_TIME/$JDNP_TIME | bc -l | cut -c 1-7) <span style="font-size:10px"><i>(r3/r4)</i></span></td>
+  </tr>
+  <tr>
+    <td class="tg-dkvh"><a target="_blank" href="https://github.com/checkstyle/checkstyle/blob/master/src/main/java/com/puppycrawl/tools/checkstyle/DetailNodeTreeStringPrinter.java#L69">JavadocDetailNodeParser</a></td>
+    <td class="tg-nr88">$JDNP_TIME</td>
+    <td class="tg-dkvh">$(echo $JDNP_TIME/$JAVADOC_COUNT | bc -l | cut -c 1-9)</td>
+    <td class="tg-nr88">-</td>
+  </tr>
+  <tr>
+    <td class="tg-mceu">JAVADOC COUNT</td>
+    <td class="tg-zmo3" colspan="3">$JAVADOC_COUNT</td>
+  </tr>
+  <tr>
+    <td class="tg-mceu">PARSE COUNT</td>
+    <td class="tg-zmo3" colspan="3">$PARSE_COUNT</td>
+  </tr>
+</table>" >> $FINAL_RESULTS_DIR/index.html
+
+
+cd $SITE_SAVE_PULL_DIR;
+ANTLR_PARSER_TIME=$(grep -h "Time by ANTLR parser:" ./**/*.tree | cut -d ':' -f 2 | awk '{s+=$1}END{print s}')
+ANTLR_TIME=$(grep -h "Time by ANTLR:" ./**/*.tree | cut -d ':' -f 2 | awk '{s+=$1}END{print s}')
+COVERSION_TO_DETAILNODE_TIME=$(grep -h "Time to convert ParseTree to DetailNode:" ./**/*.tree | cut -d ':' -f 2 | awk '{s+=$1}END{print s}')
+JDNP_TIME=$(grep -h "Time by JavadocDetailNodeParser:" ./**/*.tree | cut -d ':' -f 2 | awk '{s+=$1}END{print s}')
+
+JAVADOC_COUNT=$(grep -h "Time by JavadocDetailNodeParser:" ./**/*.tree | wc -l)
+PARSE_COUNT=$(grep -h "Time by ANTLR parser:" ./**/*.tree | wc -l)
+
+echo "<h1><span style=\"color: #00FF00;\"><b>patch</b></span></h1>" >> $FINAL_RESULTS_DIR/index.html
+
+echo "<table class="tg">
+  <tr>
+    <th class="tg-mceu">UNIT</th>
+    <th class="tg-ro48">Total Time (ms)</th>
+    <th class="tg-ro48">Average Time (ms)</th>
+    <th class="tg-ro48">Relative</th>
+  </tr>
+  <tr>
+    <td class="tg-dkvh">ANTLR Parser <a target="_blank" style="font-size: 15px" href="https://github.com/checkstyle/checkstyle/blob/master/src/main/java/com/puppycrawl/tools/checkstyle/JavadocDetailNodeParser.java#L166">JavadocParser#javadoc</a></td>
+    <td class="tg-nr88">$ANTLR_PARSER_TIME</td>
+    <td class="tg-dkvh">$(echo $ANTLR_PARSER_TIME/$PARSE_COUNT | bc -l | cut -c 1-9)</td>
+    <td class="tg-nr88">$(echo $ANTLR_PARSER_TIME/$ANTLR_TIME | bc -l | cut -c 1-7) <span style="font-size:10px"><i>(r1/r2)</i></span></td>
+  </tr>
+  <tr>
+    <td class="tg-dkvh">ANTLR <a target="_blank" style="font-size: 15px" href="https://github.com/checkstyle/checkstyle/blob/master/src/main/java/com/puppycrawl/tools/checkstyle/JavadocDetailNodeParser.java#L114">JDNP#parseJavadocAsParseTree</a></td>
+    <td class="tg-nr88">$ANTLR_TIME</td>
+    <td class="tg-dkvh">$(echo $ANTLR_TIME/$PARSE_COUNT | bc -l | cut -c 1-9)</td>
+    <td class="tg-nr88">$(echo $ANTLR_TIME/$JDNP_TIME | bc -l | cut -c 1-7) <span style="font-size:10px"><i>(r2/r4)</i></span></td>
+  </tr>
+  <tr>
+    <td class="tg-dkvh"><a target="_blank" href="https://github.com/checkstyle/checkstyle/blob/master/src/main/java/com/puppycrawl/tools/checkstyle/JavadocDetailNodeParser.java#L116">JDNP#convertParseTreeToDetailNode</a></td>
+    <td class="tg-nr88">$COVERSION_TO_DETAILNODE_TIME</td>
+    <td class="tg-dkvh">$(echo $COVERSION_TO_DETAILNODE_TIME/$PARSE_COUNT | bc -l | cut -c 1-9)</td>
+    <td class="tg-nr88">$(echo $COVERSION_TO_DETAILNODE_TIME/$JDNP_TIME | bc -l | cut -c 1-7) <span style="font-size:10px"><i>(r3/r4)</i></span></td>
+  </tr>
+  <tr>
+    <td class="tg-dkvh"><a target="_blank" href="https://github.com/checkstyle/checkstyle/blob/master/src/main/java/com/puppycrawl/tools/checkstyle/DetailNodeTreeStringPrinter.java#L69">JavadocDetailNodeParser</a></td>
+    <td class="tg-nr88">$JDNP_TIME</td>
+    <td class="tg-dkvh">$(echo $JDNP_TIME/$JAVADOC_COUNT | bc -l | cut -c 1-9)</td>
+    <td class="tg-nr88">-</td>
+  </tr>
+  <tr>
+    <td class="tg-mceu">JAVADOC COUNT</td>
+    <td class="tg-zmo3" colspan="3">$JAVADOC_COUNT</td>
+  </tr>
+  <tr>
+    <td class="tg-mceu">PARSE COUNT</td>
+    <td class="tg-zmo3" colspan="3">$PARSE_COUNT</td>
+  </tr>
+</table><br><br><br>" >> $FINAL_RESULTS_DIR/index.html
+
+IFS=$ORIG_IFS
+
+for f in $(dirname "$SITE_SAVE_MASTER_DIR")/**/*.tree;
+do
+    if [ ! -d $f ]; then
+        sed -i '/^Time/d' $f
+    fi
+done
+
+shopt -u globstar
 
 for extp in "${EXTPROJECTS[@]}"
 do
