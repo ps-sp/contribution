@@ -298,6 +298,7 @@ ORIG_IFS=$IFS
 IFS=
 
 cd $SITE_SAVE_MASTER_DIR;
+
 ANTLR_PARSER_TIME=$(grep -h "Time by ANTLR parser:" ./**/*.tree | cut -d ':' -f 2 | awk '{s+=$1}END{print s}')
 ANTLR_TIME=$(grep -h "Time by ANTLR:" ./**/*.tree | cut -d ':' -f 2 | awk '{s+=$1}END{print s}')
 COVERSION_TO_DETAILNODE_TIME=$(grep -h "Time to convert ParseTree to DetailNode:" ./**/*.tree | cut -d ':' -f 2 | awk '{s+=$1}END{print s}')
@@ -305,6 +306,32 @@ JDNP_TIME=$(grep -h "Time by JavadocDetailNodeParser:" ./**/*.tree | cut -d ':' 
 
 JAVADOC_COUNT=$(grep -h "Time by JavadocDetailNodeParser:" ./**/*.tree | wc -l)
 PARSE_COUNT=$(grep -h "Time by ANTLR parser:" ./**/*.tree | wc -l)
+
+ANTLR_PARSER_MAX=$(grep -n "Time by ANTLR parser:" ./**/*.tree | awk -F ':' 'max < $4 {max = $4; line=$0} END {print line}')
+ANTLR_PARSER_MAX_TIME=$(echo $ANTLR_PARSER_MAX | cut -d ':' -f 4)
+ANTLR_PARSER_MAX_FILE=$(echo $ANTLR_PARSER_MAX | cut -d ':' -f 1)
+ANTLR_PARSER_MAX_FILE=$(echo $ANTLR_PARSER_MAX_FILE | cut -d '.' -f 2)
+ANTLR_PARSER_MAX_FILE=$REPOSITORIES_DIR/$ANTLR_PARSER_MAX_FILE.java
+ANTLR_PARSER_MAX_JAVADOC_NUM=$(echo $ANTLR_PARSER_MAX | cut -d ':' -f 2)
+let ANTLR_PARSER_MAX_JAVADOC_NUM/=4
+let ANTLR_PARSER_MAX_JAVADOC_NUM+=1
+ANTLR_PARSER_MAX_JAVADOC_START_LINE=$(grep -n '/\*\*' $ANTLR_PARSER_MAX_FILE | cut -d ':' -f 1 | awk -v pos=$ANTLR_PARSER_MAX_JAVADOC_NUM 'NR == pos')
+ANTLR_PARSER_MAX_JAVADOC_END_LINE=$(tail -n +$ANTLR_PARSER_MAX_JAVADOC_START_LINE $ANTLR_PARSER_MAX_FILE | grep -nm 1 '\*/' | cut -d ':' -f 1)
+let ANTLR_PARSER_MAX_JAVADOC_END_LINE+=ANTLR_PARSER_MAX_JAVADOC_START_LINE-1
+
+echo "<html><body>" > $FINAL_RESULTS_DIR/master-antlr-parser-max.html
+echo "<font size="0" color="#656565"><i>"Javadoc \#$ANTLR_PARSER_MAX_JAVADOC_NUM 'in' $ANTLR_PARSER_MAX_FILE[$ANTLR_PARSER_MAX_JAVADOC_START_LINE:$ANTLR_PARSER_MAX_JAVADOC_END_LINE]"</i></font>" >> $FINAL_RESULTS_DIR/master-antlr-parser-max.html
+echo "<br><h2><span style=\"color: #ff0000;\"><strong>JAVADOC</strong></span></h2>" >> $FINAL_RESULTS_DIR/master-antlr-parser-max.html
+echo "<font size="2" color="#629755"><pre><i><xmp>" >> $FINAL_RESULTS_DIR/master-antlr-parser-max.html
+sed -n "$ANTLR_PARSER_MAX_JAVADOC_START_LINE","$ANTLR_PARSER_MAX_JAVADOC_END_LINE"p $ANTLR_PARSER_MAX_FILE | tee temp.javadoc >> $FINAL_RESULTS_DIR/master-antlr-parser-max.html
+echo "</xmp></i></pre></font>" >> $FINAL_RESULTS_DIR/master-antlr-parser-max.html
+echo "<br><h2><span style=\"color: #ff0000;\">JAVADOC TREE</span></h2>" >> $FINAL_RESULTS_DIR/master-antlr-parser-max.html
+echo "<pre>" >> $FINAL_RESULTS_DIR/master-antlr-parser-max.html
+time java -jar $TEMP_DIR/checkstyle-master-all.jar -j temp.javadoc &>> $FINAL_RESULTS_DIR/master-antlr-parser-max.html
+echo "</pre>" >> $FINAL_RESULTS_DIR/master-antlr-parser-max.html
+echo "</body></html>" >> $FINAL_RESULTS_DIR/master-antlr-parser-max.html
+
+rm temp.javadoc
 
 echo "<h1><span style=\"color: #656565;\"><b>master</b></span></h1>" >> $FINAL_RESULTS_DIR/index.html
 
@@ -324,43 +351,49 @@ echo "<style type="text/css">
     <th class="tg-ro48">Total Time (ms)</th>
     <th class="tg-ro48">Average Time (ms)</th>
     <th class="tg-ro48">Relative</th>
+    <th class="tg-ro48">Maximum (ms)</th>
   </tr>
   <tr>
     <td class="tg-dkvh">ANTLR Parser <a target="_blank" style="font-size: 15px" href="https://github.com/checkstyle/checkstyle/blob/master/src/main/java/com/puppycrawl/tools/checkstyle/JavadocDetailNodeParser.java#L166">JavadocParser#javadoc</a></td>
     <td class="tg-nr88">$ANTLR_PARSER_TIME</td>
     <td class="tg-dkvh">$(echo $ANTLR_PARSER_TIME/$PARSE_COUNT | bc -l | cut -c 1-9)</td>
     <td class="tg-nr88">$(echo $ANTLR_PARSER_TIME/$ANTLR_TIME | bc -l | cut -c 1-7) <span style="font-size:10px"><i>(r1/r2)</i></span></td>
+    <td class="tg-dkvh"><a href="master-antlr-parser-max.html">$ANTLR_PARSER_MAX_TIME</a></td>
   </tr>
   <tr>
     <td class="tg-dkvh">ANTLR <a target="_blank" style="font-size: 15px" href="https://github.com/checkstyle/checkstyle/blob/master/src/main/java/com/puppycrawl/tools/checkstyle/JavadocDetailNodeParser.java#L114">JDNP#parseJavadocAsParseTree</a></td>
     <td class="tg-nr88">$ANTLR_TIME</td>
     <td class="tg-dkvh">$(echo $ANTLR_TIME/$PARSE_COUNT | bc -l | cut -c 1-9)</td>
     <td class="tg-nr88">$(echo $ANTLR_TIME/$JDNP_TIME | bc -l | cut -c 1-7) <span style="font-size:10px"><i>(r2/r4)</i></span></td>
+    <td class="tg-dkvh">-</td>
   </tr>
   <tr>
     <td class="tg-dkvh"><a target="_blank" href="https://github.com/checkstyle/checkstyle/blob/master/src/main/java/com/puppycrawl/tools/checkstyle/JavadocDetailNodeParser.java#L116">JDNP#convertParseTreeToDetailNode</a></td>
     <td class="tg-nr88">$COVERSION_TO_DETAILNODE_TIME</td>
     <td class="tg-dkvh">$(echo $COVERSION_TO_DETAILNODE_TIME/$PARSE_COUNT | bc -l | cut -c 1-9)</td>
     <td class="tg-nr88">$(echo $COVERSION_TO_DETAILNODE_TIME/$JDNP_TIME | bc -l | cut -c 1-7) <span style="font-size:10px"><i>(r3/r4)</i></span></td>
+    <td class="tg-dkvh">-</td>
   </tr>
   <tr>
     <td class="tg-dkvh"><a target="_blank" href="https://github.com/checkstyle/checkstyle/blob/master/src/main/java/com/puppycrawl/tools/checkstyle/DetailNodeTreeStringPrinter.java#L69">JavadocDetailNodeParser</a></td>
     <td class="tg-nr88">$JDNP_TIME</td>
     <td class="tg-dkvh">$(echo $JDNP_TIME/$JAVADOC_COUNT | bc -l | cut -c 1-9)</td>
     <td class="tg-nr88">-</td>
+    <td class="tg-dkvh">-</td>
   </tr>
   <tr>
     <td class="tg-mceu">JAVADOC COUNT</td>
-    <td class="tg-zmo3" colspan="3">$JAVADOC_COUNT</td>
+    <td class="tg-zmo3" colspan="4">$JAVADOC_COUNT</td>
   </tr>
   <tr>
     <td class="tg-mceu">PARSE COUNT</td>
-    <td class="tg-zmo3" colspan="3">$PARSE_COUNT</td>
+    <td class="tg-zmo3" colspan="4">$PARSE_COUNT</td>
   </tr>
 </table>" >> $FINAL_RESULTS_DIR/index.html
 
 
 cd $SITE_SAVE_PULL_DIR;
+
 ANTLR_PARSER_TIME=$(grep -h "Time by ANTLR parser:" ./**/*.tree | cut -d ':' -f 2 | awk '{s+=$1}END{print s}')
 ANTLR_TIME=$(grep -h "Time by ANTLR:" ./**/*.tree | cut -d ':' -f 2 | awk '{s+=$1}END{print s}')
 COVERSION_TO_DETAILNODE_TIME=$(grep -h "Time to convert ParseTree to DetailNode:" ./**/*.tree | cut -d ':' -f 2 | awk '{s+=$1}END{print s}')
@@ -368,6 +401,32 @@ JDNP_TIME=$(grep -h "Time by JavadocDetailNodeParser:" ./**/*.tree | cut -d ':' 
 
 JAVADOC_COUNT=$(grep -h "Time by JavadocDetailNodeParser:" ./**/*.tree | wc -l)
 PARSE_COUNT=$(grep -h "Time by ANTLR parser:" ./**/*.tree | wc -l)
+
+ANTLR_PARSER_MAX=$(grep -n "Time by ANTLR parser:" ./**/*.tree | awk -F ':' 'max < $4 {max = $4; line=$0} END {print line}')
+ANTLR_PARSER_MAX_TIME=$(echo $ANTLR_PARSER_MAX | cut -d ':' -f 4)
+ANTLR_PARSER_MAX_FILE=$(echo $ANTLR_PARSER_MAX | cut -d ':' -f 1)
+ANTLR_PARSER_MAX_FILE=$(echo $ANTLR_PARSER_MAX_FILE | cut -d '.' -f 2)
+ANTLR_PARSER_MAX_FILE=$REPOSITORIES_DIR/$ANTLR_PARSER_MAX_FILE.java
+ANTLR_PARSER_MAX_JAVADOC_NUM=$(echo $ANTLR_PARSER_MAX | cut -d ':' -f 2)
+let ANTLR_PARSER_MAX_JAVADOC_NUM/=4
+let ANTLR_PARSER_MAX_JAVADOC_NUM+=1
+ANTLR_PARSER_MAX_JAVADOC_START_LINE=$(grep -n '/\*\*' $ANTLR_PARSER_MAX_FILE | cut -d ':' -f 1 | awk -v pos=$ANTLR_PARSER_MAX_JAVADOC_NUM 'NR == pos')
+ANTLR_PARSER_MAX_JAVADOC_END_LINE=$(tail -n +$ANTLR_PARSER_MAX_JAVADOC_START_LINE $ANTLR_PARSER_MAX_FILE | grep -nm 1 '\*/' | cut -d ':' -f 1)
+let ANTLR_PARSER_MAX_JAVADOC_END_LINE+=ANTLR_PARSER_MAX_JAVADOC_START_LINE-1
+
+echo "<html><body>" > $FINAL_RESULTS_DIR/patch-antlr-parser-max.html
+echo "<font size="0" color="#656565"><i>"Javadoc \#$ANTLR_PARSER_MAX_JAVADOC_NUM 'in' $ANTLR_PARSER_MAX_FILE[$ANTLR_PARSER_MAX_JAVADOC_START_LINE:$ANTLR_PARSER_MAX_JAVADOC_END_LINE]"</i></font>" >> $FINAL_RESULTS_DIR/patch-antlr-parser-max.html
+echo "<br><h2><span style=\"color: #ff0000;\"><strong>JAVADOC</strong></span></h2>" >> $FINAL_RESULTS_DIR/patch-antlr-parser-max.html
+echo "<font size="2" color="#629755"><pre><i><xmp>" >> $FINAL_RESULTS_DIR/patch-antlr-parser-max.html
+sed -n "$ANTLR_PARSER_MAX_JAVADOC_START_LINE","$ANTLR_PARSER_MAX_JAVADOC_END_LINE"p $ANTLR_PARSER_MAX_FILE | tee temp.javadoc >> $FINAL_RESULTS_DIR/patch-antlr-parser-max.html
+echo "</xmp></i></pre></font>" >> $FINAL_RESULTS_DIR/patch-antlr-parser-max.html
+echo "<br><h2><span style=\"color: #ff0000;\">JAVADOC TREE</span></h2>" >> $FINAL_RESULTS_DIR/patch-antlr-parser-max.html
+echo "<pre>" >> $FINAL_RESULTS_DIR/patch-antlr-parser-max.html
+time java -jar $TEMP_DIR/checkstyle-master-all.jar -j temp.javadoc &>> $FINAL_RESULTS_DIR/patch-antlr-parser-max.html
+echo "</pre>" >> $FINAL_RESULTS_DIR/patch-antlr-parser-max.html
+echo "</body></html>" >> $FINAL_RESULTS_DIR/patch-antlr-parser-max.html
+
+rm temp.javadoc
 
 echo "<h1><span style=\"color: #00FF00;\"><b>patch</b></span></h1>" >> $FINAL_RESULTS_DIR/index.html
 
@@ -377,38 +436,43 @@ echo "<table class="tg">
     <th class="tg-ro48">Total Time (ms)</th>
     <th class="tg-ro48">Average Time (ms)</th>
     <th class="tg-ro48">Relative</th>
+    <th class="tg-ro48">Maximum (ms)</th>
   </tr>
   <tr>
     <td class="tg-dkvh">ANTLR Parser <a target="_blank" style="font-size: 15px" href="https://github.com/checkstyle/checkstyle/blob/master/src/main/java/com/puppycrawl/tools/checkstyle/JavadocDetailNodeParser.java#L166">JavadocParser#javadoc</a></td>
     <td class="tg-nr88">$ANTLR_PARSER_TIME</td>
     <td class="tg-dkvh">$(echo $ANTLR_PARSER_TIME/$PARSE_COUNT | bc -l | cut -c 1-9)</td>
     <td class="tg-nr88">$(echo $ANTLR_PARSER_TIME/$ANTLR_TIME | bc -l | cut -c 1-7) <span style="font-size:10px"><i>(r1/r2)</i></span></td>
+    <td class="tg-dkvh"><a href="patch-antlr-parser-max.html">$ANTLR_PARSER_MAX_TIME</a></td
   </tr>
   <tr>
     <td class="tg-dkvh">ANTLR <a target="_blank" style="font-size: 15px" href="https://github.com/checkstyle/checkstyle/blob/master/src/main/java/com/puppycrawl/tools/checkstyle/JavadocDetailNodeParser.java#L114">JDNP#parseJavadocAsParseTree</a></td>
     <td class="tg-nr88">$ANTLR_TIME</td>
     <td class="tg-dkvh">$(echo $ANTLR_TIME/$PARSE_COUNT | bc -l | cut -c 1-9)</td>
     <td class="tg-nr88">$(echo $ANTLR_TIME/$JDNP_TIME | bc -l | cut -c 1-7) <span style="font-size:10px"><i>(r2/r4)</i></span></td>
+    <td class="tg-dkvh">-</td>
   </tr>
   <tr>
     <td class="tg-dkvh"><a target="_blank" href="https://github.com/checkstyle/checkstyle/blob/master/src/main/java/com/puppycrawl/tools/checkstyle/JavadocDetailNodeParser.java#L116">JDNP#convertParseTreeToDetailNode</a></td>
     <td class="tg-nr88">$COVERSION_TO_DETAILNODE_TIME</td>
     <td class="tg-dkvh">$(echo $COVERSION_TO_DETAILNODE_TIME/$PARSE_COUNT | bc -l | cut -c 1-9)</td>
     <td class="tg-nr88">$(echo $COVERSION_TO_DETAILNODE_TIME/$JDNP_TIME | bc -l | cut -c 1-7) <span style="font-size:10px"><i>(r3/r4)</i></span></td>
+    <td class="tg-dkvh">-</td>
   </tr>
   <tr>
     <td class="tg-dkvh"><a target="_blank" href="https://github.com/checkstyle/checkstyle/blob/master/src/main/java/com/puppycrawl/tools/checkstyle/DetailNodeTreeStringPrinter.java#L69">JavadocDetailNodeParser</a></td>
     <td class="tg-nr88">$JDNP_TIME</td>
     <td class="tg-dkvh">$(echo $JDNP_TIME/$JAVADOC_COUNT | bc -l | cut -c 1-9)</td>
     <td class="tg-nr88">-</td>
+    <td class="tg-dkvh">-</td>
   </tr>
   <tr>
     <td class="tg-mceu">JAVADOC COUNT</td>
-    <td class="tg-zmo3" colspan="3">$JAVADOC_COUNT</td>
+    <td class="tg-zmo3" colspan="4">$JAVADOC_COUNT</td>
   </tr>
   <tr>
     <td class="tg-mceu">PARSE COUNT</td>
-    <td class="tg-zmo3" colspan="3">$PARSE_COUNT</td>
+    <td class="tg-zmo3" colspan="4">$PARSE_COUNT</td>
   </tr>
 </table><br><br><br>" >> $FINAL_RESULTS_DIR/index.html
 
